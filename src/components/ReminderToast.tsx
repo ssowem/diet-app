@@ -78,7 +78,7 @@ export function ReminderToast({ isComplete, settings }: ReminderToastProps) {
   }
 
   return (
-    <aside className="reminder-toast" role="status" aria-live="polite">
+    <aside className="reminder-toast" aria-live="polite">
       <div>
         <p className="reminder-title">오늘 기록이 아직 미완료입니다.</p>
         <p>전신 사진, 몸무게, 식단 보고를 확인하세요.</p>

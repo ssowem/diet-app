@@ -5,7 +5,7 @@ import {
   Scale,
   Utensils,
 } from "lucide-react";
-import { ChangeEvent, FocusEvent, useEffect, useState } from "react";
+import { ChangeEvent, FocusEvent, useEffect, useRef, useState } from "react";
 import {
   FASTED_MARKER,
   type CompletionStatus,
@@ -41,24 +41,52 @@ function formatWeightInput(weightKg: number | undefined): string {
 }
 
 export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
+  const [draftEntry, setDraftEntry] = useState(entry);
+  const draftEntryRef = useRef(entry);
+  const pendingSavesRef = useRef(0);
   const [weightValue, setWeightValue] = useState(formatWeightInput(entry.weightKg));
   const [meals, setMeals] = useState(entry.meals);
   const [uploadError, setUploadError] = useState("");
   const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
+    if (
+      draftEntryRef.current.date === entry.date &&
+      pendingSavesRef.current > 0
+    ) {
+      return;
+    }
+
+    draftEntryRef.current = entry;
+    setDraftEntry(entry);
     setWeightValue(formatWeightInput(entry.weightKg));
     setMeals(entry.meals);
   }, [entry]);
 
   async function saveUpdatedEntry(nextEntry: DailyEntry) {
     setSaveError("");
+    pendingSavesRef.current += 1;
 
     try {
       await onSave(nextEntry);
     } catch {
       setSaveError("저장하지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      pendingSavesRef.current -= 1;
     }
+  }
+
+  function updateDraftEntry(
+    updater: (currentEntry: DailyEntry) => DailyEntry,
+  ): DailyEntry {
+    const nextEntry = updater(draftEntryRef.current);
+
+    draftEntryRef.current = nextEntry;
+    setDraftEntry(nextEntry);
+    setWeightValue(formatWeightInput(nextEntry.weightKg));
+    setMeals(nextEntry.meals);
+
+    return nextEntry;
   }
 
   async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
@@ -72,7 +100,12 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
 
     try {
       const photo = await localDietStorage.savePhoto(file);
-      await saveUpdatedEntry({ ...entry, photo });
+      const nextEntry = updateDraftEntry((currentEntry) => ({
+        ...currentEntry,
+        photo,
+      }));
+
+      await saveUpdatedEntry(nextEntry);
     } catch {
       setUploadError("사진을 저장하지 못했습니다. 다시 선택해 주세요.");
     } finally {
@@ -87,8 +120,12 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
       rawValue !== "" && Number.isFinite(parsedWeight) && parsedWeight > 0
         ? parsedWeight
         : undefined;
+    const nextEntry = updateDraftEntry((currentEntry) => ({
+      ...currentEntry,
+      weightKg,
+    }));
 
-    void saveUpdatedEntry({ ...entry, weightKg });
+    void saveUpdatedEntry(nextEntry);
   }
 
   function handleMealChange(key: keyof DailyEntry["meals"], value: string) {
@@ -99,19 +136,21 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
   }
 
   function handleMealBlur(key: keyof DailyEntry["meals"], value: string) {
-    void saveUpdatedEntry({
-      ...entry,
+    const nextEntry = updateDraftEntry((currentEntry) => ({
+      ...currentEntry,
       meals: {
-        ...entry.meals,
+        ...currentEntry.meals,
         [key]: value.trim() ? value : undefined,
       },
-    });
+    }));
+
+    void saveUpdatedEntry(nextEntry);
   }
 
   return (
     <section className="today-page" aria-label="오늘 기록">
       <div className="page-heading">
-        <p className="date-text">{entry.date}</p>
+        <p className="date-text">{draftEntry.date}</p>
         <h2>{completion.isComplete ? "오늘 완료" : "오늘 미완료"}</h2>
       </div>
 
@@ -147,11 +186,11 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
             <Camera aria-hidden="true" size={20} />
             <h3>전신 사진</h3>
           </div>
-          {entry.photo?.previewUrl ? (
+          {draftEntry.photo?.previewUrl ? (
             <img
               className="photo-preview"
-              src={entry.photo.previewUrl}
-              alt={`${entry.date} 전신 사진`}
+              src={draftEntry.photo.previewUrl}
+              alt={`${draftEntry.date} 전신 사진`}
             />
           ) : (
             <div className="photo-empty">사진 없음</div>
