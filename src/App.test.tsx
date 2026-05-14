@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import App from "./App";
@@ -58,6 +58,9 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "오늘 미완료" })).toBeVisible();
     expect(screen.getAllByText("전신 사진")[0]).toBeVisible();
+    expect(
+      within(screen.getByLabelText("필수 항목")).getAllByText("미완료"),
+    ).toHaveLength(3);
     expect(screen.getByLabelText("몸무게 kg")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "기록" }));

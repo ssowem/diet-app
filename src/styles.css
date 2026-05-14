@@ -182,7 +182,7 @@ h1 {
 
 .task-row {
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) auto;
+  grid-template-columns: 20px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
   min-height: 38px;
@@ -208,11 +208,21 @@ h1 {
 
 .task-badge {
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   color: #5a625d;
   background: #eee9df;
   font-size: 0.78rem;
   font-weight: 800;
+}
+
+.task-state {
+  color: #8a4d21;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.task-state.complete {
+  color: #167342;
 }
 
 .task-badge.required {

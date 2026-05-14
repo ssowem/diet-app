@@ -130,6 +130,9 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
                     className={task.complete ? "status-complete" : "status-open"}
                   />
                   <span className="task-label">{taskLabels[task.key] ?? task.label}</span>
+                  <span className={task.complete ? "task-state complete" : "task-state"}>
+                    {task.complete ? "완료" : "미완료"}
+                  </span>
                   <span className={task.required ? "task-badge required" : "task-badge"}>
                     {task.required ? "필수" : "선택"}
                   </span>
