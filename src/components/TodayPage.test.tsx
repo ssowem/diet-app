@@ -1,8 +1,24 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
-import { TodayPage } from "./TodayPage";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { CompletionStatus, DailyEntry } from "../domain/types";
+import { TodayPage } from "./TodayPage";
+
+const { savePhoto } = vi.hoisted(() => ({
+  savePhoto: vi.fn(),
+}));
+
+vi.mock("../storage/storage", () => ({
+  localDietStorage: {
+    savePhoto,
+  },
+}));
 
 const entry: DailyEntry = {
   date: "2026-05-14",
@@ -23,7 +39,24 @@ function pendingPromise(): Promise<void> {
   return new Promise(() => undefined);
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+
+  return { promise, resolve };
+}
+
 describe("TodayPage", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  beforeEach(() => {
+    savePhoto.mockReset();
+  });
+
   test("saves rapid meal and weight edits from the latest draft", () => {
     const savedEntries: DailyEntry[] = [];
     const onSave = vi.fn((nextEntry: DailyEntry) => {
@@ -56,6 +89,65 @@ describe("TodayPage", () => {
       meals: {
         breakfast: "eggs",
         lunch: "salad",
+      },
+    });
+  });
+
+  test("preserves typed edits while a photo save is pending", async () => {
+    const savedEntries: DailyEntry[] = [];
+    const photo = {
+      id: "photo-1",
+      previewUrl: "blob:photo-1",
+      createdAt: "2026-05-14T01:00:00.000Z",
+    };
+    const photoSave = deferred<typeof photo>();
+    const onSave = vi.fn(async (nextEntry: DailyEntry) => {
+      savedEntries.push(nextEntry);
+    });
+
+    savePhoto.mockReturnValueOnce(photoSave.promise);
+
+    const { container } = render(
+      <TodayPage entry={entry} completion={completion} onSave={onSave} />,
+    );
+
+    const fileInput = container.querySelector<HTMLInputElement>("input[type='file']");
+    const [breakfast] = screen.getAllByRole("textbox");
+    const weight = screen.getByRole("spinbutton");
+
+    expect(fileInput).not.toBeNull();
+
+    fireEvent.change(fileInput!, {
+      target: {
+        files: [new File(["photo"], "today.jpg", { type: "image/jpeg" })],
+      },
+    });
+    fireEvent.change(breakfast, { target: { value: "oatmeal" } });
+    fireEvent.change(weight, { target: { value: "71.2" } });
+
+    photoSave.resolve(photo);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    expect(breakfast).toHaveValue("oatmeal");
+    expect(weight).toHaveValue(71.2);
+    expect(savedEntries[0]).toMatchObject({
+      photo,
+      weightKg: 71.2,
+      meals: {
+        breakfast: "oatmeal",
+      },
+    });
+
+    fireEvent.blur(breakfast);
+    fireEvent.blur(weight);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(3));
+    expect(savedEntries[2]).toMatchObject({
+      photo,
+      weightKg: 71.2,
+      meals: {
+        breakfast: "oatmeal",
       },
     });
   });

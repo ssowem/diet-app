@@ -40,6 +40,14 @@ function formatWeightInput(weightKg: number | undefined): string {
   return typeof weightKg === "number" ? String(weightKg) : "";
 }
 
+function parseWeightInput(value: string): number | undefined {
+  const parsedWeight = Number(value.trim());
+
+  return value.trim() !== "" && Number.isFinite(parsedWeight) && parsedWeight > 0
+    ? parsedWeight
+    : undefined;
+}
+
 export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
   const [draftEntry, setDraftEntry] = useState(entry);
   const draftEntryRef = useRef(entry);
@@ -48,6 +56,11 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
   const [meals, setMeals] = useState(entry.meals);
   const [uploadError, setUploadError] = useState("");
   const [saveError, setSaveError] = useState("");
+
+  function syncInputsFromEntry(nextEntry: DailyEntry) {
+    setWeightValue(formatWeightInput(nextEntry.weightKg));
+    setMeals(nextEntry.meals);
+  }
 
   useEffect(() => {
     if (
@@ -59,8 +72,7 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
 
     draftEntryRef.current = entry;
     setDraftEntry(entry);
-    setWeightValue(formatWeightInput(entry.weightKg));
-    setMeals(entry.meals);
+    syncInputsFromEntry(entry);
   }, [entry]);
 
   async function saveUpdatedEntry(nextEntry: DailyEntry) {
@@ -76,15 +88,18 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
     }
   }
 
-  function updateDraftEntry(
+  function commitDraftEntry(
     updater: (currentEntry: DailyEntry) => DailyEntry,
+    options: { syncInputs?: boolean } = {},
   ): DailyEntry {
     const nextEntry = updater(draftEntryRef.current);
 
     draftEntryRef.current = nextEntry;
     setDraftEntry(nextEntry);
-    setWeightValue(formatWeightInput(nextEntry.weightKg));
-    setMeals(nextEntry.meals);
+
+    if (options.syncInputs) {
+      syncInputsFromEntry(nextEntry);
+    }
 
     return nextEntry;
   }
@@ -100,7 +115,7 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
 
     try {
       const photo = await localDietStorage.savePhoto(file);
-      const nextEntry = updateDraftEntry((currentEntry) => ({
+      const nextEntry = commitDraftEntry((currentEntry) => ({
         ...currentEntry,
         photo,
       }));
@@ -114,13 +129,8 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
   }
 
   function handleWeightBlur(event: FocusEvent<HTMLInputElement>) {
-    const rawValue = event.target.value.trim();
-    const parsedWeight = Number(rawValue);
-    const weightKg =
-      rawValue !== "" && Number.isFinite(parsedWeight) && parsedWeight > 0
-        ? parsedWeight
-        : undefined;
-    const nextEntry = updateDraftEntry((currentEntry) => ({
+    const weightKg = parseWeightInput(event.target.value);
+    const nextEntry = commitDraftEntry((currentEntry) => ({
       ...currentEntry,
       weightKg,
     }));
@@ -129,14 +139,20 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
   }
 
   function handleMealChange(key: keyof DailyEntry["meals"], value: string) {
-    setMeals((currentMeals) => ({
-      ...currentMeals,
+    const nextMeals = {
+      ...draftEntryRef.current.meals,
       [key]: value,
+    };
+
+    setMeals(nextMeals);
+    commitDraftEntry((currentEntry) => ({
+      ...currentEntry,
+      meals: nextMeals,
     }));
   }
 
   function handleMealBlur(key: keyof DailyEntry["meals"], value: string) {
-    const nextEntry = updateDraftEntry((currentEntry) => ({
+    const nextEntry = commitDraftEntry((currentEntry) => ({
       ...currentEntry,
       meals: {
         ...currentEntry.meals,
@@ -219,7 +235,15 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
             step="0.1"
             inputMode="decimal"
             value={weightValue}
-            onChange={(event) => setWeightValue(event.target.value)}
+            onChange={(event) => {
+              const nextWeightValue = event.target.value;
+
+              setWeightValue(nextWeightValue);
+              commitDraftEntry((currentEntry) => ({
+                ...currentEntry,
+                weightKg: parseWeightInput(nextWeightValue),
+              }));
+            }}
             onBlur={handleWeightBlur}
           />
         </section>
