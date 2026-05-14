@@ -1,5 +1,10 @@
 import { CalendarDays, History, Settings } from "lucide-react";
 import { useState } from "react";
+import { HistoryPage } from "./components/HistoryPage";
+import { ReminderToast } from "./components/ReminderToast";
+import { SettingsPage } from "./components/SettingsPage";
+import { TodayPage } from "./components/TodayPage";
+import { useTodayEntry } from "./hooks/useTodayEntry";
 
 type View = "today" | "history" | "settings";
 
@@ -10,27 +15,41 @@ const views: Array<{
 }> = [
   { id: "today", label: "오늘", icon: CalendarDays },
   { id: "history", label: "기록", icon: History },
-  { id: "settings", label: "설정", icon: Settings }
+  { id: "settings", label: "설정", icon: Settings },
 ];
 
-const viewContent: Record<View, { title: string; text: string }> = {
-  today: {
-    title: "오늘 식단",
-    text: "오늘의 식단 체크 항목이 여기에 표시됩니다."
-  },
-  history: {
-    title: "기록",
-    text: "지난 식단 기록과 완료 상태가 여기에 표시됩니다."
-  },
-  settings: {
-    title: "설정",
-    text: "개인 목표와 알림 설정이 여기에 표시됩니다."
+function errorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
   }
-};
+
+  return "데이터를 처리하지 못했습니다.";
+}
 
 export default function App() {
   const [activeView, setActiveView] = useState<View>("today");
-  const content = viewContent[activeView];
+  const {
+    entry,
+    entries,
+    settings,
+    completion,
+    loading,
+    error,
+    saveEntry,
+    saveSettings,
+  } = useTodayEntry();
+
+  function renderActiveView() {
+    if (activeView === "history") {
+      return <HistoryPage entries={entries} />;
+    }
+
+    if (activeView === "settings") {
+      return <SettingsPage settings={settings} onSave={saveSettings} />;
+    }
+
+    return <TodayPage entry={entry} completion={completion} onSave={saveEntry} />;
+  }
 
   return (
     <main className="app-shell">
@@ -61,10 +80,17 @@ export default function App() {
         })}
       </nav>
 
-      <section className="content-card" aria-live="polite">
-        <p className="section-label">{content.title}</p>
-        <p>{content.text}</p>
-      </section>
+      {loading ? (
+        <section className="panel loading-panel" aria-live="polite">
+          불러오는 중...
+        </section>
+      ) : (
+        <>
+          {error ? <p className="app-error">{errorMessage(error)}</p> : null}
+          {renderActiveView()}
+          <ReminderToast isComplete={completion.isComplete} settings={settings} />
+        </>
+      )}
     </main>
   );
 }
