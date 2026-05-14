@@ -52,6 +52,7 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
   const [draftEntry, setDraftEntry] = useState(entry);
   const draftEntryRef = useRef(entry);
   const pendingSavesRef = useRef(0);
+  const photoUploadSequenceRef = useRef(0);
   const [weightValue, setWeightValue] = useState(formatWeightInput(entry.weightKg));
   const [meals, setMeals] = useState(entry.meals);
   const [uploadError, setUploadError] = useState("");
@@ -111,10 +112,17 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
       return;
     }
 
+    const uploadSequence = photoUploadSequenceRef.current + 1;
+    photoUploadSequenceRef.current = uploadSequence;
     setUploadError("");
 
     try {
       const photo = await localDietStorage.savePhoto(file);
+
+      if (uploadSequence !== photoUploadSequenceRef.current) {
+        return;
+      }
+
       const nextEntry = commitDraftEntry((currentEntry) => ({
         ...currentEntry,
         photo,
@@ -122,7 +130,9 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
 
       await saveUpdatedEntry(nextEntry);
     } catch {
-      setUploadError("사진을 저장하지 못했습니다. 다시 선택해 주세요.");
+      if (uploadSequence === photoUploadSequenceRef.current) {
+        setUploadError("사진을 저장하지 못했습니다. 다시 선택해 주세요.");
+      }
     } finally {
       event.target.value = "";
     }

@@ -88,7 +88,11 @@ export default function App() {
         <>
           {error ? <p className="app-error">{errorMessage(error)}</p> : null}
           {renderActiveView()}
-          <ReminderToast isComplete={completion.isComplete} settings={settings} />
+          <ReminderToast
+            isComplete={completion.isComplete}
+            settings={settings}
+            tasks={completion.tasks}
+          />
         </>
       )}
     </main>

@@ -1,8 +1,9 @@
 import "@testing-library/jest-dom/vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import App from "./App";
+import { ReminderToast } from "./components/ReminderToast";
 import { defaultSettings, type DailyEntry } from "./domain/types";
 
 const todayEntry: DailyEntry = {
@@ -48,6 +49,11 @@ describe("App", () => {
     saveSettings.mockReset();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
   test("renders the real today view and switches to history and settings", async () => {
     const user = userEvent.setup();
 
@@ -71,5 +77,36 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "설정" })).toBeVisible();
     expect(screen.getByLabelText("전신 사진")).toBeChecked();
     expect(screen.getByRole("button", { name: "설정 저장" })).toBeVisible();
+  });
+
+  test("shows reminder text for incomplete required tasks only", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-14T12:00:00.000Z"));
+    vi.stubGlobal("Notification", undefined);
+
+    const settings = {
+      ...defaultSettings,
+      reminder: {
+        ...defaultSettings.reminder,
+        enabled: true,
+        startTime: "00:00",
+        endTime: "23:59",
+      },
+    };
+    const tasks = [
+      { key: "photo" as const, label: "전신 사진", required: false, complete: false },
+      { key: "weight" as const, label: "몸무게", required: true, complete: true },
+      { key: "meals" as const, label: "식단 보고", required: true, complete: false },
+    ];
+
+    render(<ReminderToast {...{ isComplete: false, settings, tasks }} />);
+
+    const title = screen.getByText("오늘 기록이 아직 미완료입니다.");
+    const toast = title.closest(".reminder-toast");
+
+    expect(toast).not.toBeNull();
+    expect(within(toast as HTMLElement).getByText(/식단 보고/)).toBeVisible();
+    expect(within(toast as HTMLElement).queryByText(/전신 사진/)).not.toBeInTheDocument();
+    expect(within(toast as HTMLElement).queryByText(/몸무게/)).not.toBeInTheDocument();
   });
 });

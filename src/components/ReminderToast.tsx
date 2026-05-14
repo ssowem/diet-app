@@ -1,23 +1,34 @@
 import { useEffect, useState } from "react";
 import { shouldShowReminder } from "../domain/reminder";
-import type { UserSettings } from "../domain/types";
+import type { CompletionTask, UserSettings } from "../domain/types";
 
 type ReminderToastProps = {
   isComplete: boolean;
   settings: UserSettings;
+  tasks: CompletionTask[];
 };
 
 const reminderTitle = "Diet Check";
-const reminderBody = "오늘 필수 기록이 아직 완료되지 않았습니다.";
 
 function canUseNotification(): boolean {
   return typeof Notification !== "undefined";
 }
 
-export function ReminderToast({ isComplete, settings }: ReminderToastProps) {
+function buildReminderBody(tasks: CompletionTask[]): string {
+  const incompleteRequiredTasks = tasks.filter((task) => task.required && !task.complete);
+
+  if (incompleteRequiredTasks.length === 0) {
+    return "오늘 필수 기록을 확인하세요.";
+  }
+
+  return `${incompleteRequiredTasks.map((task) => task.label).join(", ")}를 확인하세요.`;
+}
+
+export function ReminderToast({ isComplete, settings, tasks }: ReminderToastProps) {
   const [lastReminderAt, setLastReminderAt] = useState<Date>();
   const [isVisible, setIsVisible] = useState(false);
   const remindersEnabled = settings.reminder.enabled;
+  const reminderBody = buildReminderBody(tasks);
 
   useEffect(() => {
     if (isComplete || !remindersEnabled) {
@@ -54,7 +65,7 @@ export function ReminderToast({ isComplete, settings }: ReminderToastProps) {
     const intervalId = window.setInterval(checkReminder, 60 * 1000);
 
     return () => window.clearInterval(intervalId);
-  }, [isComplete, lastReminderAt, remindersEnabled, settings]);
+  }, [isComplete, lastReminderAt, reminderBody, remindersEnabled, settings]);
 
   async function requestPermission() {
     if (!canUseNotification()) {
@@ -81,7 +92,7 @@ export function ReminderToast({ isComplete, settings }: ReminderToastProps) {
     <aside className="reminder-toast">
       <div aria-live="polite">
         <p className="reminder-title">오늘 기록이 아직 미완료입니다.</p>
-        <p>전신 사진, 몸무게, 식단 보고를 확인하세요.</p>
+        <p>{reminderBody}</p>
       </div>
       <div className="reminder-actions">
         <button className="secondary-action" type="button" onClick={requestPermission}>

@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  act,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { CompletionStatus, DailyEntry } from "../domain/types";
@@ -150,5 +151,66 @@ describe("TodayPage", () => {
         breakfast: "oatmeal",
       },
     });
+  });
+
+  test("keeps the latest selected photo when earlier photo save resolves last", async () => {
+    const savedEntries: DailyEntry[] = [];
+    const photoA = {
+      id: "photo-a",
+      previewUrl: "blob:photo-a",
+      createdAt: "2026-05-14T01:00:00.000Z",
+    };
+    const photoB = {
+      id: "photo-b",
+      previewUrl: "blob:photo-b",
+      createdAt: "2026-05-14T01:01:00.000Z",
+    };
+    const photoSaveA = deferred<typeof photoA>();
+    const photoSaveB = deferred<typeof photoB>();
+    const onSave = vi.fn(async (nextEntry: DailyEntry) => {
+      savedEntries.push(nextEntry);
+    });
+
+    savePhoto
+      .mockReturnValueOnce(photoSaveA.promise)
+      .mockReturnValueOnce(photoSaveB.promise);
+
+    const { container } = render(
+      <TodayPage entry={entry} completion={completion} onSave={onSave} />,
+    );
+
+    const fileInput = container.querySelector<HTMLInputElement>("input[type='file']");
+
+    expect(fileInput).not.toBeNull();
+
+    fireEvent.change(fileInput!, {
+      target: {
+        files: [new File(["photo-a"], "photo-a.jpg", { type: "image/jpeg" })],
+      },
+    });
+    fireEvent.change(fileInput!, {
+      target: {
+        files: [new File(["photo-b"], "photo-b.jpg", { type: "image/jpeg" })],
+      },
+    });
+
+    await act(async () => {
+      photoSaveB.resolve(photoB);
+      await photoSaveB.promise;
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(savedEntries[savedEntries.length - 1]?.photo).toEqual(photoB);
+    expect(screen.getByRole("img")).toHaveAttribute("src", photoB.previewUrl);
+
+    await act(async () => {
+      photoSaveA.resolve(photoA);
+      await photoSaveA.promise;
+      await Promise.resolve();
+    });
+
+    expect(savedEntries[savedEntries.length - 1]?.photo).toEqual(photoB);
+    expect(screen.getByRole("img")).toHaveAttribute("src", photoB.previewUrl);
   });
 });
