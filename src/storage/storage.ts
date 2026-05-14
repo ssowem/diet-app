@@ -43,42 +43,74 @@ function openImageDb(): Promise<IDBDatabase> {
 async function putPhoto(id: string, file: Blob): Promise<void> {
   const db = await openImageDb();
 
-  await new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction(PHOTO_STORE_NAME, "readwrite");
-    const store = transaction.objectStore(PHOTO_STORE_NAME);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(PHOTO_STORE_NAME, "readwrite");
+      const store = transaction.objectStore(PHOTO_STORE_NAME);
 
-    store.put(file, id);
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error);
-  });
-
-  db.close();
+      store.put(file, id);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  } finally {
+    db.close();
+  }
 }
 
 async function getStoredPhoto(id: string): Promise<Blob | undefined> {
   const db = await openImageDb();
 
-  const photo = await new Promise<Blob | undefined>((resolve, reject) => {
-    const transaction = db.transaction(PHOTO_STORE_NAME, "readonly");
-    const store = transaction.objectStore(PHOTO_STORE_NAME);
-    const request = store.get(id);
+  try {
+    return await new Promise<Blob | undefined>((resolve, reject) => {
+      const transaction = db.transaction(PHOTO_STORE_NAME, "readonly");
+      const store = transaction.objectStore(PHOTO_STORE_NAME);
+      const request = store.get(id);
 
-    request.onsuccess = () => resolve(request.result as Blob | undefined);
-    request.onerror = () => reject(request.error);
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error);
-  });
+      request.onsuccess = () => resolve(request.result as Blob | undefined);
+      request.onerror = () => reject(request.error);
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  } finally {
+    db.close();
+  }
+}
 
-  db.close();
-  return photo;
+async function withRehydratedPhotoPreview(entry: DailyEntry): Promise<DailyEntry> {
+  if (!entry.photo) {
+    return entry;
+  }
+
+  try {
+    const photo = await getStoredPhoto(entry.photo.id);
+
+    if (!photo) {
+      return entry;
+    }
+
+    return {
+      ...entry,
+      photo: {
+        ...entry.photo,
+        previewUrl: URL.createObjectURL(photo),
+      },
+    };
+  } catch {
+    return entry;
+  }
 }
 
 export const localDietStorage = {
   async getEntry(date: string): Promise<DailyEntry | undefined> {
     const entries = readJson<Record<string, DailyEntry>>(ENTRIES_KEY, {});
+    const entry = entries[date];
 
-    return entries[date];
+    if (!entry) {
+      return undefined;
+    }
+
+    return withRehydratedPhotoPreview(entry);
   },
 
   async saveEntry(entry: DailyEntry): Promise<void> {
@@ -92,10 +124,11 @@ export const localDietStorage = {
 
   async listEntries(): Promise<DailyEntry[]> {
     const entries = readJson<Record<string, DailyEntry>>(ENTRIES_KEY, {});
-
-    return Object.values(entries).sort((firstEntry, secondEntry) =>
+    const sortedEntries = Object.values(entries).sort((firstEntry, secondEntry) =>
       secondEntry.date.localeCompare(firstEntry.date),
     );
+
+    return Promise.all(sortedEntries.map(withRehydratedPhotoPreview));
   },
 
   async getSettings(): Promise<UserSettings> {
