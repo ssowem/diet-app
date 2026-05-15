@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import App from "./App";
@@ -47,17 +47,31 @@ describe("App", () => {
   beforeEach(() => {
     saveEntry.mockReset();
     saveSettings.mockReset();
+    localStorage.clear();
   });
 
   afterEach(() => {
+    cleanup();
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
-  test("renders the real today view and switches to history and settings", async () => {
+  test("shows login and install entry before the app", () => {
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "로그인" })).toBeVisible();
+    expect(screen.getByLabelText("이메일")).toBeVisible();
+    expect(screen.getByRole("button", { name: "로그인" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "앱 설치" })).toBeVisible();
+  });
+
+  test("logs in, renders the real today view, and switches to history and settings", async () => {
     const user = userEvent.setup();
 
     render(<App />);
+
+    await user.type(screen.getByLabelText("이메일"), "tester@example.com");
+    await user.click(screen.getByRole("button", { name: "로그인" }));
 
     expect(
       screen.getByRole("heading", { name: "Diet Check" }),

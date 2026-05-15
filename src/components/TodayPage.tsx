@@ -2,6 +2,7 @@ import {
   Camera,
   CheckCircle2,
   Circle,
+  Save,
   Scale,
   Utensils,
 } from "lucide-react";
@@ -19,6 +20,8 @@ type TodayPageProps = {
   completion: CompletionStatus;
   onSave: (entry: DailyEntry) => Promise<void>;
 };
+
+type SaveState = "idle" | "dirty" | "saving" | "saved";
 
 const taskLabels: Record<TaskKey, string> = {
   photo: "전신 사진",
@@ -57,6 +60,8 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
   const [meals, setMeals] = useState(entry.meals);
   const [uploadError, setUploadError] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
 
   function syncInputsFromEntry(nextEntry: DailyEntry) {
     setWeightValue(formatWeightInput(nextEntry.weightKg));
@@ -74,24 +79,18 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
     draftEntryRef.current = entry;
     setDraftEntry(entry);
     syncInputsFromEntry(entry);
+    setSaveError("");
+    setSaveState("idle");
   }, [entry]);
 
-  async function saveUpdatedEntry(nextEntry: DailyEntry) {
+  function markDirty() {
     setSaveError("");
-    pendingSavesRef.current += 1;
-
-    try {
-      await onSave(nextEntry);
-    } catch {
-      setSaveError("저장하지 못했습니다. 다시 시도해 주세요.");
-    } finally {
-      pendingSavesRef.current -= 1;
-    }
+    setSaveState("dirty");
   }
 
   function commitDraftEntry(
     updater: (currentEntry: DailyEntry) => DailyEntry,
-    options: { syncInputs?: boolean } = {},
+    options: { syncInputs?: boolean; markDirty?: boolean } = {},
   ): DailyEntry {
     const nextEntry = updater(draftEntryRef.current);
 
@@ -100,6 +99,10 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
 
     if (options.syncInputs) {
       syncInputsFromEntry(nextEntry);
+    }
+
+    if (options.markDirty !== false) {
+      markDirty();
     }
 
     return nextEntry;
@@ -115,6 +118,7 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
     const uploadSequence = photoUploadSequenceRef.current + 1;
     photoUploadSequenceRef.current = uploadSequence;
     setUploadError("");
+    setIsPhotoProcessing(true);
 
     try {
       const photo = await localDietStorage.savePhoto(file);
@@ -123,29 +127,33 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
         return;
       }
 
-      const nextEntry = commitDraftEntry((currentEntry) => ({
+      commitDraftEntry((currentEntry) => ({
         ...currentEntry,
         photo,
       }));
-
-      await saveUpdatedEntry(nextEntry);
     } catch {
       if (uploadSequence === photoUploadSequenceRef.current) {
         setUploadError("사진을 저장하지 못했습니다. 다시 선택해 주세요.");
       }
     } finally {
+      if (uploadSequence === photoUploadSequenceRef.current) {
+        setIsPhotoProcessing(false);
+      }
+
       event.target.value = "";
     }
   }
 
   function handleWeightBlur(event: FocusEvent<HTMLInputElement>) {
     const weightKg = parseWeightInput(event.target.value);
-    const nextEntry = commitDraftEntry((currentEntry) => ({
-      ...currentEntry,
-      weightKg,
-    }));
 
-    void saveUpdatedEntry(nextEntry);
+    commitDraftEntry(
+      (currentEntry) => ({
+        ...currentEntry,
+        weightKg,
+      }),
+      { syncInputs: true },
+    );
   }
 
   function handleMealChange(key: keyof DailyEntry["meals"], value: string) {
@@ -162,22 +170,69 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
   }
 
   function handleMealBlur(key: keyof DailyEntry["meals"], value: string) {
-    const nextEntry = commitDraftEntry((currentEntry) => ({
-      ...currentEntry,
-      meals: {
-        ...currentEntry.meals,
-        [key]: value.trim() ? value : undefined,
-      },
-    }));
+    const normalizedValue = value.trim();
 
-    void saveUpdatedEntry(nextEntry);
+    commitDraftEntry(
+      (currentEntry) => ({
+        ...currentEntry,
+        meals: {
+          ...currentEntry.meals,
+          [key]: normalizedValue ? normalizedValue : undefined,
+        },
+      }),
+      { syncInputs: true },
+    );
   }
+
+  async function handleSaveToday() {
+    setSaveError("");
+    setSaveState("saving");
+    pendingSavesRef.current += 1;
+
+    try {
+      await onSave(draftEntryRef.current);
+      setSaveState("saved");
+    } catch {
+      setSaveState("dirty");
+      setSaveError("저장하지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      pendingSavesRef.current -= 1;
+    }
+  }
+
+  const statusText =
+    saveState === "saving"
+      ? "저장 중..."
+      : saveState === "saved"
+        ? "오늘 기록을 저장했습니다."
+        : saveState === "dirty"
+          ? "저장하지 않은 변경사항이 있습니다."
+          : "입력 후 저장해야 완료 상태에 반영됩니다.";
 
   return (
     <section className="today-page" aria-label="오늘 기록">
-      <div className="page-heading">
-        <p className="date-text">{draftEntry.date}</p>
-        <h2>{completion.isComplete ? "오늘 완료" : "오늘 미완료"}</h2>
+      <div className="page-heading today-heading">
+        <div>
+          <p className="date-text">{draftEntry.date}</p>
+          <h2>{completion.isComplete ? "오늘 완료" : "오늘 미완료"}</h2>
+        </div>
+        <div className="save-toolbar">
+          <button
+            className="primary-action save-today-button"
+            type="button"
+            onClick={handleSaveToday}
+            disabled={saveState === "saving" || isPhotoProcessing}
+          >
+            <Save aria-hidden="true" size={18} />
+            오늘 기록 저장
+          </button>
+          <p
+            className={saveState === "saved" ? "success-text" : "helper-text"}
+            aria-live="polite"
+          >
+            {isPhotoProcessing ? "사진 처리 중..." : statusText}
+          </p>
+        </div>
       </div>
 
       <div className="today-grid">
@@ -263,7 +318,9 @@ export function TodayPage({ entry, completion, onSave }: TodayPageProps) {
             <Utensils aria-hidden="true" size={20} />
             <h3>식단 보고</h3>
           </div>
-          <p className="helper-text">금식했다면 {FASTED_MARKER}를 입력하세요.</p>
+          <p className="helper-text">
+            금식했다면 {FASTED_MARKER}를 입력하세요. 아침, 점심, 저녁은 모두 필수입니다.
+          </p>
           <div className="meal-grid">
             {mealLabels.map((meal) => (
               <label className="meal-field" key={meal.key}>

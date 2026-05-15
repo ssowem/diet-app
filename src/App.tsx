@@ -1,9 +1,12 @@
-import { CalendarDays, History, Settings } from "lucide-react";
+import { CalendarDays, History, LogOut, Settings } from "lucide-react";
 import { useState } from "react";
+import { AuthGate } from "./components/AuthGate";
 import { HistoryPage } from "./components/HistoryPage";
+import { InstallPrompt } from "./components/InstallPrompt";
 import { ReminderToast } from "./components/ReminderToast";
 import { SettingsPage } from "./components/SettingsPage";
 import { TodayPage } from "./components/TodayPage";
+import { useLocalSession, type LocalSession } from "./hooks/useLocalSession";
 import { useTodayEntry } from "./hooks/useTodayEntry";
 
 type View = "today" | "history" | "settings";
@@ -26,7 +29,12 @@ function errorMessage(error: unknown): string {
   return "데이터를 처리하지 못했습니다.";
 }
 
-export default function App() {
+type AuthenticatedAppProps = {
+  session: LocalSession;
+  onLogout: () => void;
+};
+
+function AuthenticatedApp({ session, onLogout }: AuthenticatedAppProps) {
   const [activeView, setActiveView] = useState<View>("today");
   const {
     entry,
@@ -37,7 +45,7 @@ export default function App() {
     error,
     saveEntry,
     saveSettings,
-  } = useTodayEntry();
+  } = useTodayEntry(session.profileId);
 
   function renderActiveView() {
     if (activeView === "history") {
@@ -58,7 +66,16 @@ export default function App() {
           <p className="eyebrow">Personal diet log</p>
           <h1>Diet Check</h1>
         </div>
+        <div className="account-menu">
+          <span>{session.email}</span>
+          <button className="secondary-action" type="button" onClick={onLogout}>
+            <LogOut aria-hidden="true" size={17} />
+            로그아웃
+          </button>
+        </div>
       </header>
+
+      <InstallPrompt />
 
       <nav className="segmented-tabs" aria-label="Diet Check views">
         {views.map((view) => {
@@ -97,4 +114,28 @@ export default function App() {
       )}
     </main>
   );
+}
+
+export default function App() {
+  const { session, login, logout } = useLocalSession();
+
+  if (!session) {
+    return (
+      <main className="app-shell auth-shell">
+        <header className="top-bar">
+          <div>
+            <p className="eyebrow">Personal diet log</p>
+            <h1>Diet Check</h1>
+          </div>
+        </header>
+
+        <div className="auth-layout">
+          <AuthGate onLogin={login} />
+          <InstallPrompt />
+        </div>
+      </main>
+    );
+  }
+
+  return <AuthenticatedApp session={session} onLogout={logout} />;
 }

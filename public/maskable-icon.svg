@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Diet Check">
+  <rect width="512" height="512" fill="#1d6b43"/>
+  <rect x="116" y="112" width="280" height="288" rx="40" fill="#ffffff"/>
+  <path d="M176 206h160" stroke="#1d6b43" stroke-width="28" stroke-linecap="round"/>
+  <path d="M176 270h106" stroke="#1d6b43" stroke-width="28" stroke-linecap="round"/>
+  <path d="M176 334h72" stroke="#1d6b43" stroke-width="28" stroke-linecap="round"/>
+  <circle cx="338" cy="334" r="34" fill="#dcebe0"/>
+  <path d="m321 334 12 12 27-32" fill="none" stroke="#1d6b43" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

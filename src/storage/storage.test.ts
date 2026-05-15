@@ -6,6 +6,7 @@ describe("localDietStorage", () => {
   beforeEach(async () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    localDietStorage.setProfile("local");
     localStorage.clear();
     await localDietStorage.clearAll();
   });
@@ -52,6 +53,48 @@ describe("localDietStorage", () => {
     await localDietStorage.saveSettings(settings);
 
     await expect(localDietStorage.getSettings()).resolves.toEqual(settings);
+  });
+
+  test("separates entries and settings by active profile", async () => {
+    const firstEntry: DailyEntry = {
+      date: "2026-05-14",
+      weightKg: 72,
+      meals: {},
+      updatedAt: "2026-05-14T00:00:00.000Z",
+    };
+    const secondEntry: DailyEntry = {
+      date: "2026-05-14",
+      weightKg: 64,
+      meals: {},
+      updatedAt: "2026-05-14T00:00:00.000Z",
+    };
+    const firstSettings: UserSettings = {
+      ...defaultSettings,
+      requiredTasks: {
+        photo: false,
+        weight: true,
+        meals: true,
+      },
+    };
+
+    localDietStorage.setProfile("user-first");
+    await localDietStorage.saveEntry(firstEntry);
+    await localDietStorage.saveSettings(firstSettings);
+
+    localDietStorage.setProfile("user-second");
+    await localDietStorage.saveEntry(secondEntry);
+
+    await expect(localDietStorage.getEntry("2026-05-14")).resolves.toMatchObject({
+      weightKg: 64,
+    });
+    await expect(localDietStorage.getSettings()).resolves.toEqual(defaultSettings);
+
+    localDietStorage.setProfile("user-first");
+
+    await expect(localDietStorage.getEntry("2026-05-14")).resolves.toMatchObject({
+      weightKg: 72,
+    });
+    await expect(localDietStorage.getSettings()).resolves.toEqual(firstSettings);
   });
 
   test("rehydrates stored photo previews when entries are loaded", async () => {

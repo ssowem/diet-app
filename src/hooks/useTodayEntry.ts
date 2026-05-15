@@ -9,7 +9,7 @@ import {
 } from "../domain/types";
 import { localDietStorage } from "../storage/storage";
 
-export function useTodayEntry(now = new Date()) {
+export function useTodayEntry(profileId = "local", now = new Date()) {
   const todayKey = toDateKey(now);
   const requestIdRef = useRef(0);
   const [entry, setEntry] = useState<DailyEntry>(() =>
@@ -24,6 +24,7 @@ export function useTodayEntry(now = new Date()) {
     const requestId = ++requestIdRef.current;
 
     setLoading(true);
+    localDietStorage.setProfile(profileId);
 
     try {
       const [savedEntry, savedSettings, savedEntries] = await Promise.all([
@@ -54,7 +55,7 @@ export function useTodayEntry(now = new Date()) {
         setLoading(false);
       }
     }
-  }, [todayKey]);
+  }, [profileId, todayKey]);
 
   useEffect(() => {
     void refresh();
@@ -72,6 +73,7 @@ export function useTodayEntry(now = new Date()) {
     };
 
     try {
+      localDietStorage.setProfile(profileId);
       await localDietStorage.saveEntry(stamped);
       const savedEntries = await localDietStorage.listEntries();
 
@@ -93,12 +95,13 @@ export function useTodayEntry(now = new Date()) {
         setLoading(false);
       }
     }
-  }, []);
+  }, [profileId]);
 
   const saveSettings = useCallback(async (settingsToSave: UserSettings) => {
     const requestId = ++requestIdRef.current;
 
     try {
+      localDietStorage.setProfile(profileId);
       await localDietStorage.saveSettings(settingsToSave);
       if (requestId !== requestIdRef.current) {
         return;
@@ -117,7 +120,7 @@ export function useTodayEntry(now = new Date()) {
         setLoading(false);
       }
     }
-  }, []);
+  }, [profileId]);
 
   const completion = useMemo(
     () => getCompletionStatus(entry, settings),

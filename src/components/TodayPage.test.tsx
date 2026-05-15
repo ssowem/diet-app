@@ -7,6 +7,7 @@ import {
   waitFor,
   act,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { CompletionStatus, DailyEntry } from "../domain/types";
 import { TodayPage } from "./TodayPage";
@@ -36,10 +37,6 @@ const completion: CompletionStatus = {
   ],
 };
 
-function pendingPromise(): Promise<void> {
-  return new Promise(() => undefined);
-}
-
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((promiseResolve) => {
@@ -58,12 +55,11 @@ describe("TodayPage", () => {
     savePhoto.mockReset();
   });
 
-  test("saves rapid meal and weight edits from the latest draft", () => {
+  test("keeps edits local until the save button is clicked", async () => {
+    const user = userEvent.setup();
     const savedEntries: DailyEntry[] = [];
-    const onSave = vi.fn((nextEntry: DailyEntry) => {
+    const onSave = vi.fn(async (nextEntry: DailyEntry) => {
       savedEntries.push(nextEntry);
-
-      return pendingPromise();
     });
 
     render(<TodayPage entry={entry} completion={completion} onSave={onSave} />);
@@ -72,20 +68,15 @@ describe("TodayPage", () => {
     const weight = screen.getByRole("spinbutton");
 
     fireEvent.change(breakfast, { target: { value: "eggs" } });
-    fireEvent.blur(breakfast);
     fireEvent.change(lunch, { target: { value: "salad" } });
-    fireEvent.blur(lunch);
     fireEvent.change(weight, { target: { value: "72.5" } });
-    fireEvent.blur(weight);
 
-    expect(onSave).toHaveBeenCalledTimes(3);
-    expect(savedEntries[1]).toMatchObject({
-      meals: {
-        breakfast: "eggs",
-        lunch: "salad",
-      },
-    });
-    expect(savedEntries[2]).toMatchObject({
+    expect(onSave).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "오늘 기록 저장" }));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(savedEntries[0]).toMatchObject({
       weightKg: 72.5,
       meals: {
         breakfast: "eggs",
@@ -95,6 +86,7 @@ describe("TodayPage", () => {
   });
 
   test("preserves typed edits while a photo save is pending", async () => {
+    const user = userEvent.setup();
     const savedEntries: DailyEntry[] = [];
     const photo = {
       id: "photo-1",
@@ -128,10 +120,17 @@ describe("TodayPage", () => {
 
     photoSave.resolve(photo);
 
-    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByRole("img")).toHaveAttribute("src", photo.previewUrl),
+    );
 
     expect(breakfast).toHaveValue("oatmeal");
     expect(weight).toHaveValue(71.2);
+    expect(onSave).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "오늘 기록 저장" }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(savedEntries[0]).toMatchObject({
       photo,
       weightKg: 71.2,
@@ -143,17 +142,11 @@ describe("TodayPage", () => {
     fireEvent.blur(breakfast);
     fireEvent.blur(weight);
 
-    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(3));
-    expect(savedEntries[2]).toMatchObject({
-      photo,
-      weightKg: 71.2,
-      meals: {
-        breakfast: "oatmeal",
-      },
-    });
+    expect(onSave).toHaveBeenCalledTimes(1);
   });
 
   test("keeps the latest selected photo when earlier photo save resolves last", async () => {
+    const user = userEvent.setup();
     const savedEntries: DailyEntry[] = [];
     const photoA = {
       id: "photo-a",
@@ -200,8 +193,7 @@ describe("TodayPage", () => {
       await Promise.resolve();
     });
 
-    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    expect(savedEntries[savedEntries.length - 1]?.photo).toEqual(photoB);
+    expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByRole("img")).toHaveAttribute("src", photoB.previewUrl);
 
     await act(async () => {
@@ -210,7 +202,11 @@ describe("TodayPage", () => {
       await Promise.resolve();
     });
 
-    expect(savedEntries[savedEntries.length - 1]?.photo).toEqual(photoB);
     expect(screen.getByRole("img")).toHaveAttribute("src", photoB.previewUrl);
+
+    await user.click(screen.getByRole("button", { name: "오늘 기록 저장" }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(savedEntries[savedEntries.length - 1]?.photo).toEqual(photoB);
   });
 });

@@ -39,6 +39,17 @@ button {
   margin-bottom: 28px;
 }
 
+.account-menu {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  color: #46564d;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
 .eyebrow {
   margin: 0 0 8px;
   color: #4d6658;
@@ -115,8 +126,54 @@ h1 {
   line-height: 1.6;
 }
 
+.auth-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.85fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.auth-panel,
+.install-panel {
+  border: 1px solid #ded9cd;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(31 37 34 / 7%);
+}
+
+.auth-form,
+.install-panel {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.auth-form h2,
+.install-panel h2 {
+  margin: 0;
+  color: #17201a;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.install-panel {
+  margin-bottom: 22px;
+}
+
+.auth-layout .install-panel {
+  margin-bottom: 0;
+}
+
 .page-heading {
   margin-bottom: 18px;
+}
+
+.today-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
 }
 
 .page-heading h2 {
@@ -132,6 +189,13 @@ h1 {
   color: #617168;
   font-size: 0.95rem;
   font-weight: 700;
+}
+
+.save-toolbar {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  min-width: min(280px, 100%);
 }
 
 .today-grid {
@@ -515,6 +579,16 @@ h1 {
   background: #f6f4ef;
 }
 
+.primary-action:disabled,
+.secondary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.install-action {
+  width: fit-content;
+}
+
 .reminder-toast {
   position: fixed;
   right: 20px;
@@ -562,7 +636,17 @@ h1 {
 
   .top-bar {
     align-items: flex-start;
+    flex-direction: column;
     margin-bottom: 22px;
+  }
+
+  .account-menu {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .auth-layout {
+    grid-template-columns: 1fr;
   }
 
   .segmented-tabs {
@@ -588,6 +672,15 @@ h1 {
     grid-template-columns: 1fr;
   }
 
+  .today-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .save-toolbar {
+    justify-items: stretch;
+  }
+
   .history-main {
     grid-template-columns: minmax(0, 1fr) 88px;
   }
@@ -597,7 +690,8 @@ h1 {
   }
 
   .primary-action,
-  .file-button {
+  .file-button,
+  .install-action {
     width: 100%;
   }
 

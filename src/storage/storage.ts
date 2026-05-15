@@ -1,10 +1,27 @@
 import { DailyEntry, defaultSettings, UserSettings } from "../domain/types";
 
-const ENTRIES_KEY = "diet-app:entries";
-const SETTINGS_KEY = "diet-app:settings";
+const BASE_ENTRIES_KEY = "diet-app:entries";
+const BASE_SETTINGS_KEY = "diet-app:settings";
 const IMAGE_DB_NAME = "diet-app-images";
 const IMAGE_DB_VERSION = 1;
 const PHOTO_STORE_NAME = "photos";
+const DEFAULT_PROFILE_ID = "local";
+
+let activeProfileId = DEFAULT_PROFILE_ID;
+
+function scopedKey(baseKey: string): string {
+  return activeProfileId === DEFAULT_PROFILE_ID
+    ? baseKey
+    : `diet-app:${activeProfileId}:${baseKey.replace("diet-app:", "")}`;
+}
+
+function entriesKey(): string {
+  return scopedKey(BASE_ENTRIES_KEY);
+}
+
+function settingsKey(): string {
+  return scopedKey(BASE_SETTINGS_KEY);
+}
 
 function readJson<T>(key: string, fallback: T): T {
   const rawValue = localStorage.getItem(key);
@@ -102,8 +119,12 @@ async function withRehydratedPhotoPreview(entry: DailyEntry): Promise<DailyEntry
 }
 
 export const localDietStorage = {
+  setProfile(profileId: string): void {
+    activeProfileId = profileId.trim() || DEFAULT_PROFILE_ID;
+  },
+
   async getEntry(date: string): Promise<DailyEntry | undefined> {
-    const entries = readJson<Record<string, DailyEntry>>(ENTRIES_KEY, {});
+    const entries = readJson<Record<string, DailyEntry>>(entriesKey(), {});
     const entry = entries[date];
 
     if (!entry) {
@@ -114,16 +135,16 @@ export const localDietStorage = {
   },
 
   async saveEntry(entry: DailyEntry): Promise<void> {
-    const entries = readJson<Record<string, DailyEntry>>(ENTRIES_KEY, {});
+    const entries = readJson<Record<string, DailyEntry>>(entriesKey(), {});
 
-    writeJson(ENTRIES_KEY, {
+    writeJson(entriesKey(), {
       ...entries,
       [entry.date]: entry,
     });
   },
 
   async listEntries(): Promise<DailyEntry[]> {
-    const entries = readJson<Record<string, DailyEntry>>(ENTRIES_KEY, {});
+    const entries = readJson<Record<string, DailyEntry>>(entriesKey(), {});
     const sortedEntries = Object.values(entries).sort((firstEntry, secondEntry) =>
       secondEntry.date.localeCompare(firstEntry.date),
     );
@@ -132,11 +153,11 @@ export const localDietStorage = {
   },
 
   async getSettings(): Promise<UserSettings> {
-    return readJson<UserSettings>(SETTINGS_KEY, defaultSettings);
+    return readJson<UserSettings>(settingsKey(), defaultSettings);
   },
 
   async saveSettings(settings: UserSettings): Promise<void> {
-    writeJson(SETTINGS_KEY, settings);
+    writeJson(settingsKey(), settings);
   },
 
   async savePhoto(
@@ -158,7 +179,7 @@ export const localDietStorage = {
   },
 
   async clearAll(): Promise<void> {
-    localStorage.removeItem(ENTRIES_KEY);
-    localStorage.removeItem(SETTINGS_KEY);
+    localStorage.removeItem(entriesKey());
+    localStorage.removeItem(settingsKey());
   },
 };
