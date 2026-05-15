@@ -23,6 +23,17 @@ const completion = {
 
 const saveEntry = vi.fn();
 const saveSettings = vi.fn();
+const signInWithProvider = vi.fn();
+const logout = vi.fn();
+
+let authState = {
+  session: undefined as { email: string; profileId: string } | undefined,
+  loading: false,
+  error: undefined as string | undefined,
+  isConfigured: true,
+  signInWithProvider,
+  logout,
+};
 
 vi.mock("./hooks/useTodayEntry", () => ({
   useTodayEntry: () => ({
@@ -43,10 +54,24 @@ vi.mock("./hooks/useTodayEntry", () => ({
   }),
 }));
 
+vi.mock("./hooks/useAuthSession", () => ({
+  useAuthSession: () => authState,
+}));
+
 describe("App", () => {
   beforeEach(() => {
     saveEntry.mockReset();
     saveSettings.mockReset();
+    signInWithProvider.mockReset();
+    logout.mockReset();
+    authState = {
+      session: undefined,
+      loading: false,
+      error: undefined,
+      isConfigured: true,
+      signInWithProvider,
+      logout,
+    };
     localStorage.clear();
   });
 
@@ -60,18 +85,35 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "로그인" })).toBeVisible();
-    expect(screen.getByLabelText("이메일")).toBeVisible();
-    expect(screen.getByRole("button", { name: "로그인" })).toBeVisible();
+    expect(screen.queryByLabelText("이메일")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Google로 계속하기" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "카카오로 계속하기" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "네이버로 계속하기" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "앱 설치" })).toBeVisible();
   });
 
-  test("logs in, renders the real today view, and switches to history and settings", async () => {
+  test("starts social login with the selected provider", async () => {
     const user = userEvent.setup();
 
     render(<App />);
 
-    await user.type(screen.getByLabelText("이메일"), "tester@example.com");
-    await user.click(screen.getByRole("button", { name: "로그인" }));
+    await user.click(screen.getByRole("button", { name: "카카오로 계속하기" }));
+
+    expect(signInWithProvider).toHaveBeenCalledWith("kakao");
+  });
+
+  test("renders the real today view for an authenticated user and switches views", async () => {
+    const user = userEvent.setup();
+
+    authState = {
+      ...authState,
+      session: {
+        email: "tester@example.com",
+        profileId: "supabase-user-1",
+      },
+    };
+
+    render(<App />);
 
     expect(
       screen.getByRole("heading", { name: "Diet Check" }),

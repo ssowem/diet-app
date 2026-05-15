@@ -6,7 +6,7 @@ import { InstallPrompt } from "./components/InstallPrompt";
 import { ReminderToast } from "./components/ReminderToast";
 import { SettingsPage } from "./components/SettingsPage";
 import { TodayPage } from "./components/TodayPage";
-import { useLocalSession, type LocalSession } from "./hooks/useLocalSession";
+import { useAuthSession, type AppAuthSession } from "./hooks/useAuthSession";
 import { useTodayEntry } from "./hooks/useTodayEntry";
 
 type View = "today" | "history" | "settings";
@@ -30,8 +30,8 @@ function errorMessage(error: unknown): string {
 }
 
 type AuthenticatedAppProps = {
-  session: LocalSession;
-  onLogout: () => void;
+  session: AppAuthSession;
+  onLogout: () => void | Promise<void>;
 };
 
 function AuthenticatedApp({ session, onLogout }: AuthenticatedAppProps) {
@@ -117,7 +117,14 @@ function AuthenticatedApp({ session, onLogout }: AuthenticatedAppProps) {
 }
 
 export default function App() {
-  const { session, login, logout } = useLocalSession();
+  const {
+    session,
+    loading: authLoading,
+    error: authError,
+    isConfigured,
+    signInWithProvider,
+    logout,
+  } = useAuthSession();
 
   if (!session) {
     return (
@@ -130,7 +137,12 @@ export default function App() {
         </header>
 
         <div className="auth-layout">
-          <AuthGate onLogin={login} />
+          <AuthGate
+            onSignIn={signInWithProvider}
+            isConfigured={isConfigured}
+            isLoading={authLoading}
+            authError={authError}
+          />
           <InstallPrompt />
         </div>
       </main>
