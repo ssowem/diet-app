@@ -1,4 +1,4 @@
-const CACHE_NAME = "diet-check-v1";
+const CACHE_NAME = "diet-check-v2";
 const APP_SHELL = ["./", "manifest.webmanifest", "icon.svg", "maskable-icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -23,6 +23,12 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") {
     return;
@@ -33,7 +39,10 @@ self.addEventListener("fetch", (event) => {
       try {
         const response = await fetch(event.request);
 
-        if (new URL(event.request.url).origin === self.location.origin) {
+        if (
+          response.ok &&
+          new URL(event.request.url).origin === self.location.origin
+        ) {
           cache.put(event.request, response.clone());
         }
 
