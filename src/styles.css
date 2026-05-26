@@ -218,6 +218,60 @@ h1 {
   padding-top: 2px;
 }
 
+.auth-divider {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  color: #758077;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  height: 1px;
+  background: #e2ddd2;
+  content: "";
+}
+
+.guest-login-button,
+.secondary-link-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1px solid #bfd4c4;
+  border-radius: 6px;
+  color: #143a27;
+  background: #e8f3eb;
+  cursor: pointer;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.guest-login-button:hover,
+.secondary-link-action:hover {
+  filter: brightness(0.97);
+}
+
+.browser-help {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e4dccf;
+  border-radius: 6px;
+  background: #fbfaf7;
+}
+
+.secondary-link-action {
+  width: fit-content;
+  min-height: 38px;
+  padding: 0 12px;
+  background: #ffffff;
+}
+
 .auth-loading {
   display: inline-flex;
   align-items: center;
@@ -640,6 +694,7 @@ h1 {
 
 .primary-action:disabled,
 .secondary-action:disabled,
+.guest-login-button:disabled,
 .social-login-button:disabled {
   cursor: not-allowed;
   opacity: 0.62;
@@ -685,6 +740,8 @@ h1 {
 .file-button:focus-within,
 .primary-action:focus-visible,
 .secondary-action:focus-visible,
+.guest-login-button:focus-visible,
+.secondary-link-action:focus-visible,
 .social-login-button:focus-visible {
   outline: 3px solid #9db49f;
   outline-offset: 2px;
@@ -752,7 +809,8 @@ h1 {
 
   .primary-action,
   .file-button,
-  .install-action {
+  .install-action,
+  .secondary-link-action {
     width: 100%;
   }
 

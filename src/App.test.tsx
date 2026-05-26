@@ -24,6 +24,7 @@ const completion = {
 const saveEntry = vi.fn();
 const saveSettings = vi.fn();
 const signInWithProvider = vi.fn();
+const startGuestSession = vi.fn();
 const logout = vi.fn();
 
 let authState = {
@@ -32,6 +33,7 @@ let authState = {
   error: undefined as string | undefined,
   isConfigured: true,
   signInWithProvider,
+  startGuestSession,
   logout,
 };
 
@@ -63,6 +65,7 @@ describe("App", () => {
     saveEntry.mockReset();
     saveSettings.mockReset();
     signInWithProvider.mockReset();
+    startGuestSession.mockReset();
     logout.mockReset();
     authState = {
       session: undefined,
@@ -70,6 +73,7 @@ describe("App", () => {
       error: undefined,
       isConfigured: true,
       signInWithProvider,
+      startGuestSession,
       logout,
     };
     localStorage.clear();
@@ -89,6 +93,8 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Google로 계속하기" })).toBeVisible();
     expect(screen.getByRole("button", { name: "카카오로 계속하기" })).toBeVisible();
     expect(screen.getByRole("button", { name: "네이버로 계속하기" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "게스트로 먼저 써보기" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Chrome에서 열기" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "앱 설치" })).toBeVisible();
   });
 
@@ -100,6 +106,16 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "카카오로 계속하기" }));
 
     expect(signInWithProvider).toHaveBeenCalledWith("kakao");
+  });
+
+  test("starts guest mode from the login screen", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "게스트로 먼저 써보기" }));
+
+    expect(startGuestSession).toHaveBeenCalled();
   });
 
   test("renders the real today view for an authenticated user and switches views", async () => {

@@ -58,8 +58,38 @@ const providerIds: Record<SocialProvider, string> = {
   naver: "custom:naver",
 };
 
+const guestSession: AppAuthSession = {
+  email: "게스트 모드",
+  profileId: "guest",
+};
+
+const guestSessionKey = "diet-app:guest-session";
+
 function getDefaultRedirectTo(): string {
   return new URL(import.meta.env.BASE_URL, window.location.origin).toString();
+}
+
+function readGuestSession(): AppAuthSession | undefined {
+  try {
+    return localStorage.getItem(guestSessionKey) === "active"
+      ? guestSession
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeGuestSession(isActive: boolean): void {
+  try {
+    if (isActive) {
+      localStorage.setItem(guestSessionKey, "active");
+      return;
+    }
+
+    localStorage.removeItem(guestSessionKey);
+  } catch {
+    // Storage can be unavailable in private browser modes. Keep in-memory state.
+  }
 }
 
 function readEmailFromMetadata(
@@ -97,7 +127,7 @@ export function useAuthSession(options: UseAuthSessionOptions = {}) {
 
   useEffect(() => {
     if (!client || !isConfigured) {
-      setSession(undefined);
+      setSession(readGuestSession());
       setLoading(false);
       setError(undefined);
       return;
@@ -119,7 +149,13 @@ export function useAuthSession(options: UseAuthSessionOptions = {}) {
           return;
         }
 
-        setSession(toAppSession(data.session));
+        const nextSession = toAppSession(data.session);
+
+        if (nextSession) {
+          writeGuestSession(false);
+        }
+
+        setSession(nextSession ?? readGuestSession());
         setError(undefined);
       })
       .catch((caughtError: unknown) => {
@@ -143,7 +179,13 @@ export function useAuthSession(options: UseAuthSessionOptions = {}) {
     const {
       data: { subscription },
     } = client.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(toAppSession(nextSession));
+      const mappedSession = toAppSession(nextSession);
+
+      if (mappedSession) {
+        writeGuestSession(false);
+      }
+
+      setSession(mappedSession ?? readGuestSession());
       setError(undefined);
       setLoading(false);
     });
@@ -174,7 +216,16 @@ export function useAuthSession(options: UseAuthSessionOptions = {}) {
     [client, isConfigured, redirectTo],
   );
 
+  const startGuestSession = useCallback(() => {
+    writeGuestSession(true);
+    setSession(guestSession);
+    setError(undefined);
+    setLoading(false);
+  }, []);
+
   const logout = useCallback(async () => {
+    writeGuestSession(false);
+
     if (client && isConfigured) {
       const { error: logoutError } = await client.auth.signOut();
 
@@ -192,6 +243,7 @@ export function useAuthSession(options: UseAuthSessionOptions = {}) {
     error,
     isConfigured,
     signInWithProvider,
+    startGuestSession,
     logout,
   };
 }

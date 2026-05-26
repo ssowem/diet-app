@@ -123,6 +123,7 @@ export default function App() {
     error: authError,
     isConfigured,
     signInWithProvider,
+    startGuestSession,
     logout,
   } = useAuthSession();
 
@@ -139,6 +140,7 @@ export default function App() {
         <div className="auth-layout">
           <AuthGate
             onSignIn={signInWithProvider}
+            onGuestStart={startGuestSession}
             isConfigured={isConfigured}
             isLoading={authLoading}
             authError={authError}

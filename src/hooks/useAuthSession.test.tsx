@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   useAuthSession,
   type AuthClientLike,
@@ -32,6 +32,10 @@ function createAuthClient(session: SupabaseAuthSession | null): AuthClientLike {
 }
 
 describe("useAuthSession", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   test("reports unconfigured auth without creating a session", () => {
     const { result } = renderHook(() =>
       useAuthSession({
@@ -89,5 +93,35 @@ describe("useAuthSession", () => {
         redirectTo: "https://ssowem.github.io/diet-app/",
       },
     });
+  });
+
+  test("starts a guest session for MVP testing and clears it on logout", async () => {
+    const client = createAuthClient(null);
+
+    const { result } = renderHook(() =>
+      useAuthSession({
+        client,
+        isConfigured: true,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    act(() => {
+      result.current.startGuestSession();
+    });
+
+    expect(result.current.session).toEqual({
+      email: "게스트 모드",
+      profileId: "guest",
+    });
+
+    await act(async () => {
+      await result.current.logout();
+    });
+
+    expect(result.current.session).toBeUndefined();
   });
 });

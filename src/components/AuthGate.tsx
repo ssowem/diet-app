@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { LogIn } from "lucide-react";
+import { ExternalLink, LogIn, UserRound } from "lucide-react";
 import type { SocialProvider } from "../hooks/useAuthSession";
 
 type AuthGateProps = {
   onSignIn: (provider: SocialProvider) => Promise<void>;
+  onGuestStart: () => void;
   isConfigured: boolean;
   isLoading?: boolean;
   authError?: string;
@@ -19,8 +20,20 @@ const providers: Array<{
   { id: "naver", label: "네이버로 계속하기", mark: "N" },
 ];
 
+function getAppHomeUrl(): string {
+  return new URL(import.meta.env.BASE_URL, window.location.origin).toString();
+}
+
+function getChromeIntentUrl(appUrl: string): string {
+  const url = new URL(appUrl);
+  const browserFallback = encodeURIComponent(appUrl);
+
+  return `intent://${url.host}${url.pathname}${url.search}${url.hash}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${browserFallback};end`;
+}
+
 export function AuthGate({
   onSignIn,
+  onGuestStart,
   isConfigured,
   isLoading = false,
   authError,
@@ -28,6 +41,8 @@ export function AuthGate({
   const [pendingProvider, setPendingProvider] = useState<SocialProvider>();
   const [localError, setLocalError] = useState("");
   const displayedError = localError || authError;
+  const appHomeUrl = getAppHomeUrl();
+  const chromeIntentUrl = getChromeIntentUrl(appHomeUrl);
 
   async function handleSignIn(provider: SocialProvider) {
     setLocalError("");
@@ -86,6 +101,34 @@ export function AuthGate({
         <p className="helper-text social-helper">
           회원가입 폼 없이 선택한 계정으로 바로 로그인합니다.
         </p>
+
+        <div className="auth-divider" aria-hidden="true">
+          또는
+        </div>
+
+        <button
+          className="guest-login-button"
+          type="button"
+          onClick={onGuestStart}
+        >
+          <UserRound aria-hidden="true" size={18} />
+          게스트로 먼저 써보기
+        </button>
+
+        <p className="helper-text">
+          게스트 기록은 이 기기에만 저장됩니다. Google 로그인 흰 화면에 막혀도
+          앱 기능은 바로 테스트할 수 있습니다.
+        </p>
+
+        <div className="browser-help">
+          <p className="helper-text">
+            Google 로그인 화면이 하얗게 멈추면 Chrome 앱에서 다시 여세요.
+          </p>
+          <a className="secondary-link-action" href={chromeIntentUrl}>
+            <ExternalLink aria-hidden="true" size={17} />
+            Chrome에서 열기
+          </a>
+        </div>
 
         {isLoading ? (
           <p className="helper-text auth-loading">
